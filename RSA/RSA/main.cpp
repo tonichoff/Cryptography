@@ -8,8 +8,10 @@ int main(int argc, char* argv) {
 	LongNumber longNumber;
 	inputFile >> longNumber;
 
+	LongNumber other(longNumber);
+
 	std::ofstream outputFile("output.txt");
-	outputFile << longNumber;
+	outputFile << longNumber + other;
 
 	return 0;
 }

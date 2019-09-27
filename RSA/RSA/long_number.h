@@ -2,11 +2,16 @@
 #include <vector>
 #include <iostream>
 #include <string>
+#include <algorithm>
 
 class LongNumber {
 public:
-	friend std::ostream& operator<<(std::ostream&, const LongNumber&);
+	LongNumber() {}
+	LongNumber(const LongNumber&);
 
+	LongNumber operator+(const LongNumber&) const;
+
+	friend std::ostream& operator<<(std::ostream&, const LongNumber&);
 	friend std::istream& operator>>(std::istream&, LongNumber&);
 private:
 	const int base = (int) 1e9;
