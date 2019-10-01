@@ -4,15 +4,24 @@ LongNumber::LongNumber(const LongNumber& other) {
 	buffer = other.buffer;
 }
 
+LongNumber::LongNumber(const int& integer) {
+	buffer.push_back(integer);
+}
+
+LongNumber LongNumber::operator=(const LongNumber& other) {
+	buffer = other.buffer;
+	return *this;
+}
+
 LongNumber LongNumber::operator+(const LongNumber& other) const {
 	LongNumber result(*this);
 	int carry = 0;
 	for (size_t i = 0; i < std::max(buffer.size(), other.buffer.size()) || carry; ++i) {
-		if (i == buffer.size()) {
+		if (i == result.buffer.size()) {
 			result.buffer.push_back(0);
 		}
 		result.buffer[i] += carry + (i < other.buffer.size() ? other.buffer[i] : 0);
-		carry = buffer[i] >= base;
+		carry = result.buffer[i] >= base;
 		if (carry) {
 			result.buffer[i] -= base;
 		}
@@ -25,7 +34,7 @@ LongNumber LongNumber::operator-(const LongNumber& other) const {
 	int carry = 0;
 	for (size_t i = 0; i < other.buffer.size() || carry; ++i) {
 		result.buffer[i] -= carry + (i < other.buffer.size() ? other.buffer[i] : 0);
-		carry = buffer[i] < 0;
+		carry = result.buffer[i] < 0;
 		if (carry) {
 			result.buffer[i] += base;
 		}
@@ -57,8 +66,8 @@ LongNumber LongNumber::operator*(const LongNumber& other) const {
 	LongNumber result;
 	result.buffer.resize(buffer.size() + other.buffer.size());
 	for (size_t i = 0; i < buffer.size(); ++i) {
-		for (size_t j = 0, carry = 0; j < other.buffer.size() || carry; ++j) {
-			long long cur = result.buffer[i + j] + buffer[i] * 1ll * (j < other.buffer.size() ? other.buffer[j] : 0) + carry;
+		for (int j = 0, carry = 0; j < (int) other.buffer.size() || carry; ++j) {
+			long long cur = result.buffer[i + j] + buffer[i] * 1ll * (j < (int) other.buffer.size() ? other.buffer[j] : 0) + carry;
 			result.buffer[i + j] = int(cur % base);
 			carry = int(cur / base);
 		}
@@ -92,6 +101,46 @@ int LongNumber::operator%(const int& other) const {
 		carry = int(cur % other);
 	}
 	return carry;
+}
+	
+LongNumber LongNumber::operator/(const LongNumber& other) const {
+	LongNumber left(1);
+	LongNumber right(*this);
+	while (true) {
+		LongNumber mid = (left + right) / 2;
+		if (mid * other > *this) {
+			right = mid;
+		}
+		else {
+			LongNumber reminder = *this - mid * other;
+			if (reminder >= other) {
+				left = mid;
+			}
+			else {
+				return mid;
+			}
+		}
+	}
+}
+
+LongNumber LongNumber::operator%(const LongNumber& other) const {
+	LongNumber left(1);
+	LongNumber right(*this);
+	while (true) {
+		LongNumber mid = (left + right) / 2;
+		if (mid * other > *this) {
+			right = mid;
+		}
+		else {
+			LongNumber reminder = *this - (mid * other);
+			if (reminder >= other) {
+				left = mid;
+			}
+			else {
+				return reminder;
+			}
+		}
+	}
 }
 
 bool LongNumber::operator<(const LongNumber& other) const {
@@ -135,7 +184,6 @@ bool LongNumber::operator<=(const LongNumber& other) const {
 bool LongNumber::operator>=(const LongNumber& other) const {
 	return (*this > other || *this == other);
 }
-
 
 std::ostream& operator<<(std::ostream& os, const LongNumber& longNumber) {
 	if (longNumber.buffer.size() == 0) {

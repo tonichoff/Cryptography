@@ -7,21 +7,11 @@ int main(int argc, char* argv) {
 
 	LongNumber longNumber;
 	inputFile >> longNumber;
-	LongNumber other = longNumber;
+	LongNumber other = longNumber * 2;
+	other = other - 1;
 
 	std::ofstream outputFile("output.txt");
-	outputFile << (other == longNumber) << std::endl;
-	outputFile << (other == longNumber * 2) << std::endl;
-	outputFile << (other < longNumber * 2) << std::endl;
-	outputFile << (2 * other < longNumber) << std::endl;
-	outputFile << (other > longNumber * 2) << std::endl;
-	outputFile << (2 * other > longNumber) << std::endl;
-	outputFile << (other <= longNumber * 2) << std::endl;
-	outputFile << (2 * other <= longNumber) << std::endl;
-	outputFile << (other >= longNumber * 2) << std::endl;
-	outputFile << (2 * other >= longNumber) << std::endl;
-	outputFile << (other <= longNumber) << std::endl;
-	outputFile << (other >= longNumber) << std::endl;
+	outputFile << ((other % longNumber + 1) == longNumber);
 
 	return 0;
 }
