@@ -20,6 +20,22 @@ LongNumber LongNumber::operator+(const LongNumber& other) const {
 	return result;
 }
 
+LongNumber LongNumber::operator-(const LongNumber& other) const {
+	LongNumber result(*this);
+	int carry = 0;
+	for (size_t i = 0; i < other.buffer.size() || carry; ++i) {
+		result.buffer[i] -= carry + (i < other.buffer.size() ? other.buffer[i] : 0);
+		carry = buffer[i] < 0;
+		if (carry) {
+			result.buffer[i] += base;
+		}
+	}
+	while (result.buffer.size() > 1 && result.buffer.back() == 0) {
+		result.buffer.pop_back();
+	}
+	return result;
+}
+
 std::ostream& operator<<(std::ostream& os, const LongNumber& longNumber) {
 	if (longNumber.buffer.size() == 0) {
 		os << "0";

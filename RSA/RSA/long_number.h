@@ -10,6 +10,7 @@ public:
 	LongNumber(const LongNumber&);
 
 	LongNumber operator+(const LongNumber&) const;
+	LongNumber operator-(const LongNumber&) const;
 
 	friend std::ostream& operator<<(std::ostream&, const LongNumber&);
 	friend std::istream& operator>>(std::istream&, LongNumber&);

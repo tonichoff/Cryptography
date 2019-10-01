@@ -11,7 +11,7 @@ int main(int argc, char* argv) {
 	LongNumber other(longNumber);
 
 	std::ofstream outputFile("output.txt");
-	outputFile << longNumber + other;
+	outputFile << longNumber - other;
 
 	return 0;
 }
