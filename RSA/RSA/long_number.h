@@ -15,6 +15,11 @@ public:
 	LongNumber operator*(const LongNumber&) const;
 	LongNumber operator/(const int&) const;
 	int operator%(const int&) const;
+	bool operator<(const LongNumber&) const;
+	bool operator==(const LongNumber&) const;
+	bool operator>(const LongNumber&) const;
+	bool operator<=(const LongNumber&) const;
+	bool operator>=(const LongNumber&) const;
 
 	friend std::ostream& operator<<(std::ostream&, const LongNumber&);
 	friend std::istream& operator>>(std::istream&, LongNumber&);

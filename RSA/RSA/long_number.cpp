@@ -94,6 +94,49 @@ int LongNumber::operator%(const int& other) const {
 	return carry;
 }
 
+bool LongNumber::operator<(const LongNumber& other) const {
+	if (buffer.size() < other.buffer.size()) {
+		return true;
+	}
+	else if (buffer.size() > other.buffer.size()) {
+		return false;
+	}
+	for (int i = buffer.size() - 1; i >= 0; --i) {
+		if (buffer[i] < other.buffer[i]) {
+			return true;
+		}
+		else if (buffer[i] > other.buffer[i]) {
+			return false;
+		}
+	}
+	return false;
+}
+
+bool LongNumber::operator==(const LongNumber& other) const {
+	if (buffer.size() != other.buffer.size()) {
+		return false;
+	}
+	for (int i = buffer.size() - 1; i >= 0; --i) {
+		if (buffer[i] != other.buffer[i]) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool LongNumber::operator>(const LongNumber& other) const {
+	return !(*this < other || *this == other);
+}
+
+bool LongNumber::operator<=(const LongNumber& other) const {
+	return (*this < other || *this == other);
+}
+
+bool LongNumber::operator>=(const LongNumber& other) const {
+	return (*this > other || *this == other);
+}
+
+
 std::ostream& operator<<(std::ostream& os, const LongNumber& longNumber) {
 	if (longNumber.buffer.size() == 0) {
 		os << "0";
