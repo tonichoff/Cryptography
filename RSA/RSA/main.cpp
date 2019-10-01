@@ -7,11 +7,10 @@ int main(int argc, char* argv) {
 
 	LongNumber longNumber;
 	inputFile >> longNumber;
-
-	LongNumber other(longNumber);
+	LongNumber other = longNumber;
 
 	std::ofstream outputFile("output.txt");
-	outputFile << longNumber - other;
+	outputFile << 2 * other;
 
 	return 0;
 }
