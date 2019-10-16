@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Numerics;
 
 namespace RSA
@@ -7,20 +8,17 @@ namespace RSA
     {
         static void Main(string[] args)
         {
+            string textPath = "text.txt";
+            string openKeyFilePath = "open_key.txt";
+            string closeKeyFilePath = "close_key.txt";
+            string encryptFilePath = "encrypt_text.txt";
+            string decryptFilePath = "decrypt_text.txt";
+
             RSA.GenerateKeys(out RSAKey openKey, out RSAKey closeKey);
-
-            Console.WriteLine($"Open key:  {{{openKey.Key}, {openKey.Module} }}");
-            Console.WriteLine($"Close key: {{{closeKey.Key}, {closeKey.Module} }}");
-
-            // Example from https://ru.wikipedia.org/wiki/RSA.
-            BigInteger message = 111111;
-            BigInteger code = RSA.Encrypt(message, openKey);
-            BigInteger decryptMessage = RSA.Decrypt(code, closeKey);
-
-            Console.WriteLine($"Message: {message}");
-            Console.WriteLine($"Code:    {code}");
-            Console.WriteLine($"Decrypt: {decryptMessage}");
-            Console.ReadKey();
+            openKey.WriteToFile(openKeyFilePath);
+            closeKey.WriteToFile(closeKeyFilePath);
+            RSA.EncryptFile(textPath, encryptFilePath, openKeyFilePath);
+            RSA.DecryptFile(encryptFilePath, decryptFilePath, closeKeyFilePath);
         }
     }
 }

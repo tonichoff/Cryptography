@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Numerics;
 
 namespace RSA
@@ -9,6 +10,22 @@ namespace RSA
         {
             Key = key;
             Module = module;
+        }
+
+        public void WriteToFile(string path)
+        {
+            using (var file = File.CreateText(path))
+            {
+                file.Write(Key);
+                file.Write(' ');
+                file.Write(Module);
+            }
+        }
+
+        public static RSAKey ReadFromFile(string path)
+        {
+            var content = File.ReadAllText(path).Split(' ');
+            return new RSAKey(BigInteger.Parse(content[0]), BigInteger.Parse(content[1]));
         }
 
         public BigInteger Key { get; private set; }
@@ -32,12 +49,49 @@ namespace RSA
             closeKey = new RSAKey(d, n);
         }
 
-        static public BigInteger Encrypt(BigInteger cipher, RSAKey openKey)
+        static public void EncryptFile(string sourceFilePath, string encodeFilePath, string fileKeyPath)
+        {
+            RSAKey openKey = RSAKey.ReadFromFile(fileKeyPath);
+            using (var encodeFile = File.CreateText(encodeFilePath))
+            {
+                byte[] bytesFromSourceFile = File.ReadAllBytes(sourceFilePath);
+                bool isFirstByte = true;
+                foreach (byte @byte in bytesFromSourceFile)
+                {
+                    BigInteger code = Encrypt(new BigInteger(@byte), openKey);
+                    if (!isFirstByte)
+                    {
+                        encodeFile.Write(" ");
+                    }
+                    else
+                    {
+                        isFirstByte = false;
+                    }
+                    encodeFile.Write(code);
+                }
+            }
+        }
+
+        static public void DecryptFile(string encodeFilePath, string decodeFilePath, string fileKeyPath)
+        {
+            RSAKey closeKey = RSAKey.ReadFromFile(fileKeyPath);
+            using (var decodedFile = File.Create(decodeFilePath))
+            {
+                var encodedInformation = File.ReadAllText(encodeFilePath).Split(' ');
+                foreach (var block in encodedInformation)
+                {
+                    byte decodedBlock = Decrypt(BigInteger.Parse(block), closeKey).ToByteArray()[0];
+                    decodedFile.WriteByte(decodedBlock);
+                }
+            }
+        }
+
+        static private BigInteger Encrypt(BigInteger cipher, RSAKey openKey)
         {
             return BigInteger.ModPow(cipher, openKey.Key, openKey.Module);
         }
 
-        static public BigInteger Decrypt(BigInteger cipher, RSAKey closeKey)
+        static private BigInteger Decrypt(BigInteger cipher, RSAKey closeKey)
         {
             return BigInteger.ModPow(cipher, closeKey.Key, closeKey.Module);
         }
