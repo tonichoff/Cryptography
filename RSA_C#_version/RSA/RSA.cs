@@ -137,7 +137,7 @@ namespace RSA
                     candidate = GenerateRandom(Min, Max);
                 }
                 candidate |= 1;
-                if (TrialDivision(candidate))
+                if (MillerRabin(candidate))
                 {
                     Console.WriteLine($"End generating prime {candidate}");
                     return candidate;
@@ -145,7 +145,7 @@ namespace RSA
             }
         }
 
-        public static bool TrialDivision(BigInteger candidate)
+        private static bool TrialDivision(BigInteger candidate)
         {
             Console.WriteLine("Start TestPrime");
             var closestSqrt = Sqrt(candidate);
@@ -160,10 +160,57 @@ namespace RSA
             return true;
         }
 
+        private static bool MillerRabin(BigInteger n)
+        {
+            Console.WriteLine("Start TestPrime");
+            if (n % 2 == 0)
+            {
+                return false;
+            }
+            var t = n - 1;
+            var s = 0;
+            while (t % 2 == 0)
+            {
+                t /= 2;
+                ++s;
+            }
+            var rounds = 40;
+            for (var i = 0; i < rounds; ++i)
+            {
+                Console.WriteLine($"Round {i} from {rounds}");
+                var a = GenerateRandom(2, n - 2);
+                var x = BigInteger.ModPow(a, t, n);
+                if (x == 1 || x == n - 1)
+                {
+                    continue;
+                }
+                var flag = false;
+                for (var j = 0; j < s; ++j)
+                {
+                    x = BigInteger.ModPow(x, 2, n);
+                    if (x == 1)
+                    {
+                        return false;
+                    }
+                    if (x == n - 1)
+                    {
+                        flag = true;
+                        break;
+                    }
+                }
+                if (flag)
+                {
+                    continue;
+                }
+                return false;
+            }
+            return true;
+        }
+
         private static BigInteger Sqrt(BigInteger number)
         {
             // https://social.msdn.microsoft.com/Forums/ru-RU/f9aca8c2-af21-40e4-b5bb-c9613b9db4ca/-biginteger?forum=fordesktopru.
-            BigInteger root = number;
+            var root = number;
             int bitLength = 1;
             while (root / 2 != 0)
             {
@@ -173,7 +220,7 @@ namespace RSA
             bitLength = (bitLength + 1) / 2;
             root = number >> bitLength;
 
-            BigInteger lastRoot = BigInteger.Zero;
+            var lastRoot = BigInteger.Zero;
             do
             {
                 lastRoot = root;
@@ -183,44 +230,28 @@ namespace RSA
             return root;
         }
 
-        private static BigInteger GenerateRandom(BigInteger leftBound, BigInteger rightBound)
+        public static BigInteger GenerateRandom(BigInteger leftBound, BigInteger rightBound)
         {
-            Console.WriteLine("Start generating random");
-            var maxBytes = rightBound.ToByteArray();
-            var minBytes = leftBound.ToByteArray();
-            var resultBytes = new byte[maxBytes.Length];
-            if (minBytes.Length < maxBytes.Length)
-            {
-                var buffer = new byte[maxBytes.Length];
-                Array.Copy(minBytes, 0, buffer, maxBytes.Length - minBytes.Length, minBytes.Length);
-                minBytes = buffer;
-            }
-            var isLessMax = false;
-            var isMoreMin = false;
+            var diff = rightBound - leftBound;
+            // https://stackoverflow.com/questions/17357760/how-can-i-generate-a-random-biginteger-within-a-certain-range.
+            byte[] bytes = diff.ToByteArray();
+            BigInteger result;
             var random = new Random();
-            for (var i = 0; i < maxBytes.Length; i++)
+            do {
+                random.NextBytes(bytes);
+                bytes[bytes.Length - 1] &= (byte)0x7F; //force sign bit to positive
+                result = new BigInteger(bytes);
+            } while (result >= diff);
+            result += leftBound;
+            if (result < leftBound || result > rightBound || result < 0)
             {
-                Console.WriteLine($"Generate byte {i} from {maxBytes.Length}");
-                var upperBound = Byte.MaxValue + 1;
-                if (!isLessMax)
-                {
-                    upperBound = maxBytes[i] + 1;
-                }
-                var lowerBound = Byte.MinValue;
-                if (!isMoreMin)
-                {
-                    lowerBound = minBytes[i];
-                }
-                var randomByte = (byte)random.Next(lowerBound, upperBound);
-                isLessMax = randomByte < maxBytes[i];
-                isMoreMin = randomByte > minBytes[i];
-                resultBytes[i] = randomByte;
+                throw new Exception("Generated number outside of ranges");
             }
-            return new BigInteger(resultBytes);
+            return result;
         }
 
         private const char Separator = ' ';
-        private const int Base = 8;
+        private const int Base = 512;
         private static BigInteger Max = BigInteger.Pow(2, Base) - 1;
         private static BigInteger Min = BigInteger.Pow(2, Base - 1);
     }

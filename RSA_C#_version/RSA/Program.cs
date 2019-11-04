@@ -19,6 +19,8 @@ namespace RSA
             closeKey.WriteToFile(closeKeyFilePath);
             RSA.EncryptFile(textPath, encryptFilePath, openKeyFilePath);
             RSA.DecryptFile(encryptFilePath, decryptFilePath, closeKeyFilePath);
+
+            Console.ReadKey();
         }
     }
 }
