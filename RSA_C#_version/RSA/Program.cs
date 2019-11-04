@@ -8,11 +8,11 @@ namespace RSA
     {
         static void Main(string[] args)
         {
-            string textPath = "text.txt";
-            string openKeyFilePath = "open_key.txt";
-            string closeKeyFilePath = "close_key.txt";
-            string encryptFilePath = "encrypt_text.txt";
-            string decryptFilePath = "decrypt_text.txt";
+            var textPath = "text.txt";
+            var openKeyFilePath = "open_key.txt";
+            var closeKeyFilePath = "close_key.txt";
+            var encryptFilePath = "encrypt_text.txt";
+            var decryptFilePath = "decrypt_text.txt";
 
             RSA.GenerateKeys(out RSAKey openKey, out RSAKey closeKey);
             openKey.WriteToFile(openKeyFilePath);

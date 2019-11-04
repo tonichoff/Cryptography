@@ -17,51 +17,54 @@ namespace RSA
             using (var file = File.CreateText(path))
             {
                 file.Write(Key);
-                file.Write(' ');
+                file.Write(Separator);
                 file.Write(Module);
             }
         }
 
         public static RSAKey ReadFromFile(string path)
         {
-            var content = File.ReadAllText(path).Split(' ');
+            var content = File.ReadAllText(path).Split(Separator);
             return new RSAKey(BigInteger.Parse(content[0]), BigInteger.Parse(content[1]));
         }
 
         public BigInteger Key { get; private set; }
         public BigInteger Module { get; private set; }
+
+        private const char Separator = ' ';
     }
 
     class RSA
     {
         static public void GenerateKeys(out RSAKey openKey, out RSAKey closeKey)
         {
-            // Example from https://ru.wikipedia.org/wiki/RSA.
-            BigInteger p = 3557;
-            BigInteger q = 2579;
-            BigInteger n = p * q;
-            BigInteger eulerResult = (p - 1) * (q - 1);
+            var content = File.ReadAllText("primes.txt").Split('\n');
+            var p = BigInteger.Parse(content[0]);
+            var q = BigInteger.Parse(content[1]);
+            var n = p * q;
+            var eulerResult = (p - 1) * (q - 1);
             // For open key used fifth number Fermat.
-            BigInteger e = 65537;
-            BigInteger d = EuclidExtendedModified(eulerResult, e);
+            var e = 65537;
+            EuclidExtended(e, eulerResult, out BigInteger d, out BigInteger temp);
+            d = (d % eulerResult + eulerResult) % eulerResult; 
 
             openKey = new RSAKey(e, n);
             closeKey = new RSAKey(d, n);
         }
 
-        static public void EncryptFile(string sourceFilePath, string encodeFilePath, string fileKeyPath)
+        static public void EncryptFile(string sourceFilePath, string encryptFilePath, string fileKeyPath)
         {
-            RSAKey openKey = RSAKey.ReadFromFile(fileKeyPath);
-            using (var encodeFile = File.CreateText(encodeFilePath))
+            var openKey = RSAKey.ReadFromFile(fileKeyPath);
+            using (var encodeFile = File.CreateText(encryptFilePath))
             {
-                byte[] bytesFromSourceFile = File.ReadAllBytes(sourceFilePath);
-                bool isFirstByte = true;
+                var bytesFromSourceFile = File.ReadAllBytes(sourceFilePath);
+                var isFirstByte = true;
                 foreach (byte @byte in bytesFromSourceFile)
                 {
-                    BigInteger code = Encrypt(new BigInteger(@byte), openKey);
+                    var code = Encrypt(new BigInteger(@byte), openKey);
                     if (!isFirstByte)
                     {
-                        encodeFile.Write(" ");
+                        encodeFile.Write(Separator);
                     }
                     else
                     {
@@ -72,15 +75,15 @@ namespace RSA
             }
         }
 
-        static public void DecryptFile(string encodeFilePath, string decodeFilePath, string fileKeyPath)
+        static public void DecryptFile(string encryptFilePath, string decryptFilePath, string fileKeyPath)
         {
-            RSAKey closeKey = RSAKey.ReadFromFile(fileKeyPath);
-            using (var decodedFile = File.Create(decodeFilePath))
+            var closeKey = RSAKey.ReadFromFile(fileKeyPath);
+            using (var decodedFile = File.Create(decryptFilePath))
             {
-                var encodedInformation = File.ReadAllText(encodeFilePath).Split(' ');
+                var encodedInformation = File.ReadAllText(encryptFilePath).Split(Separator);
                 foreach (var block in encodedInformation)
                 {
-                    byte decodedBlock = Decrypt(BigInteger.Parse(block), closeKey).ToByteArray()[0];
+                    var decodedBlock = Decrypt(BigInteger.Parse(block), closeKey).ToByteArray()[0];
                     decodedFile.WriteByte(decodedBlock);
                 }
             }
@@ -96,32 +99,20 @@ namespace RSA
             return BigInteger.ModPow(cipher, closeKey.Key, closeKey.Module);
         }
 
-        static private BigInteger EuclidExtendedModified(BigInteger eulerResult, BigInteger openKey)
+        static private BigInteger EuclidExtended(BigInteger a, BigInteger b, out BigInteger x, out BigInteger y)
         {
-            BigInteger a = eulerResult;
-            BigInteger b = openKey;
-            BigInteger c = eulerResult;
-            BigInteger d = 1;
-            while (b != 1)
+            if (a == 0)
             {
-                BigInteger g = a / b;
-                BigInteger h = g * d;
-                BigInteger i = a - b * g;
-                if (i < 0)
-                {
-                    i = (i / eulerResult + 1) * eulerResult + i;
-                }
-                BigInteger j = c - h;
-                if (j < 0)
-                {
-                    j = (j / eulerResult + 1) * eulerResult + j;
-                }
-                a = b;
-                b = i;
-                c = d;
-                d = j;
+                x = 0;
+                y = 1;
+                return b;
             }
-            return d;
+            var gcd = EuclidExtended(b % a, a, out BigInteger x1, out BigInteger y1);
+            x = y1 - (b / a) * x1;
+            y = x1;
+            return gcd;
         }
+
+        private const char Separator = ' ';
     }
 }
