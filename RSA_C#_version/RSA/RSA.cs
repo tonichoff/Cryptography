@@ -137,7 +137,7 @@ namespace RSA
                     candidate = GenerateRandom(Min, Max);
                 }
                 candidate |= 1;
-                if (MillerRabin(candidate))
+                if (Fermat(candidate))
                 {
                     Console.WriteLine($"End generating prime {candidate}");
                     return candidate;
@@ -203,6 +203,31 @@ namespace RSA
                     continue;
                 }
                 return false;
+            }
+            return true;
+        }
+
+        private static bool Fermat(BigInteger n)
+        {
+            Console.WriteLine("Start TestPrime");
+            if (n == 1)
+            {
+                return false;
+            }
+            else if (n == 2)
+            {
+                return true;
+            }
+            var rounds = 20;
+            for (int i = 0; i < rounds; ++i)
+            {
+                Console.WriteLine($"Round {i} from {rounds}");
+                var a = GenerateRandom(2, n - 2);
+                var r = BigInteger.ModPow(a, n - 1, n);
+                if (r != 1)
+                {
+                    return false;
+                }
             }
             return true;
         }
