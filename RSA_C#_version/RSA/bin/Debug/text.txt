@@ -1,307 +1,283 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
-using System.Net;
 using System.Numerics;
-using System.Reflection.Emit;
-using System.Security.Cryptography;
-using System.Text;
 
-namespace RSA {
-public class Algorithms {
-    public delegate bool TestPrimeDelegate(BigInteger n);
-    private static RNGCryptoServiceProvider rngCsp = new RNGCryptoServiceProvider();
-    private const char Delimeter = ':';
-    
-    public static readonly string DefaultSourceFileName = "source.txt";
-    public static readonly string DefaultEncryptedFileName = "encrypted.bin";
-    public static readonly string DefaultDecryptedFileName = "decrypted.txt";
-    public static readonly string DefaultPublicKeyFilename = "public.key";
-    public static readonly string DefaultPrivateKeyFilename = "private.key";
-    private static readonly BigInteger PublicExponent = new BigInteger(65537); 
-
-    public static void Encrypt(int bitsKeyLength, TestPrimeDelegate testPrime, string inputFilePath, 
-                               string sourceFilePath, string publicKeyFilePath, string privateKeyFilePath) 
+namespace RSA
+{
+    public class RSAKey
     {
-        var bytesKeyLength = bitsKeyLength / 8;
-        var p = GenerateLargePrimeNumber(bytesKeyLength, testPrime);
-        var q = GenerateLargePrimeNumber(bytesKeyLength, testPrime);
+        public RSAKey(BigInteger key, BigInteger module)
+        {
+            Key = key;
+            Module = module;
+        }
 
-        var n = p * q;
-        var phiN = EulerFunction(p, q);
-        Debug.Assert(Gcd(PublicExponent, phiN).IsOne);
-        // calculate d
-        BigInteger d, tmp;
-        var g = Gcd(PublicExponent, phiN, out d, out tmp);
-        d = (d % phiN + phiN) % phiN;
-        
-        Console.WriteLine("Writing public key to " + publicKeyFilePath);
-        WriteKeyToFile(n, publicKeyFilePath);
-        Console.WriteLine("Writing private key to " + privateKeyFilePath);
-        WriteKeyToFile(d, privateKeyFilePath);
-        
-        Console.WriteLine("Writing encrypted data to " + DefaultEncryptedFileName);
-        using (var reader = File.OpenRead(Path.GetFullPath(DefaultSourceFileName))) {
-            using (var writer = File.CreateText(Path.GetFullPath(DefaultEncryptedFileName))) {
-                int b;
-                var first = true;
-                
-                while ((b = reader.ReadByte()) != -1) {
-                    if (!first) 
-                        writer.Write(Delimeter);
+        public void WriteToFile(string path)
+        {
+            using (var file = File.CreateText(path))
+            {
+                file.Write(Key);
+                file.Write(Separator);
+                file.Write(Module);
+            }
+        }
+
+        public static RSAKey ReadFromFile(string path)
+        {
+            var content = File.ReadAllText(path).Split(Separator);
+            return new RSAKey(BigInteger.Parse(content[0]), BigInteger.Parse(content[1]));
+        }
+
+        public BigInteger Key { get; private set; }
+        public BigInteger Module { get; private set; }
+
+        private const char Separator = ' ';
+    }
+
+    class RSA
+    {
+        static public void GenerateKeys(out RSAKey openKey, out RSAKey closeKey)
+        {
+            Console.WriteLine("Start generating keys");
+            var content = File.ReadAllText("primes.txt").Split('\n');
+            //var p = BigInteger.Parse(content[0]);
+            //var q = BigInteger.Parse(content[1]);
+            var p = GenetateRandomPrime();
+            Console.WriteLine($"p is generated == {p}");
+            var q = GenetateRandomPrime();
+            Console.WriteLine($"q is generated == {p}");
+            var n = p * q;
+            var eulerResult = (p - 1) * (q - 1);
+            // For open key used fifth number Fermat.
+            var e = 65537;
+            Console.WriteLine($"Start generating e");
+            EuclidExtended(e, eulerResult, out BigInteger d, out BigInteger temp);
+            d = (d % eulerResult + eulerResult) % eulerResult; 
+
+            openKey = new RSAKey(e, n);
+            closeKey = new RSAKey(d, n);
+        }
+
+        static public void EncryptFile(string sourceFilePath, string encryptFilePath, string fileKeyPath)
+        {
+            Console.WriteLine($"Start encrypting");
+            var openKey = RSAKey.ReadFromFile(fileKeyPath);
+            using (var encodeFile = File.CreateText(encryptFilePath))
+            {
+                var bytesFromSourceFile = File.ReadAllBytes(sourceFilePath);
+                var isFirstByte = true;
+                var count = 0;
+                foreach (byte @byte in bytesFromSourceFile)
+                {
+                    Console.WriteLine($"Byte number {count++} from {bytesFromSourceFile.Length}");
+                    var code = Encrypt(new BigInteger(@byte), openKey);
+                    if (!isFirstByte)
+                    {
+                        encodeFile.Write(Separator);
+                    }
                     else
-                        first = false;
-                    
-                    var encryptedBytes = BinPowMod(b, PublicExponent, n);
-                    writer.Write(encryptedBytes.ToString());
+                    {
+                        isFirstByte = false;
+                    }
+                    encodeFile.Write(code);
                 }
             }
         }
-    }
 
-    private static void WriteKeyToFile(BigInteger key, string filePath) {
-        using (var writer = File.Create(filePath)) {
-            writer.Write(key.ToByteArray(true, true));
-        }
-    }
-
-    public static void Decrypt(string encryptedFilePath, string privateKeyFilePath, string publicKeyFilePath) {
-        BigInteger privateKey;
-        BigInteger publicKey;
-        privateKey = new BigInteger(File.ReadAllBytes(privateKeyFilePath), true, true);
-        publicKey = new BigInteger(File.ReadAllBytes(publicKeyFilePath), true, true);
-
-        var encryptedBytes = File.ReadAllText(DefaultEncryptedFileName).Split(Delimeter);
-        using (var writer = File.Create(Path.GetFullPath(DefaultDecryptedFileName))) {
-            foreach (var b in encryptedBytes) {
-                var encryptedBigInt =  BigInteger.Parse(b);
-                var decryptedByte = BinPowMod(encryptedBigInt, privateKey, publicKey);
-                Debug.Assert(decryptedByte.GetByteCount() == 1);
-                writer.WriteByte(decryptedByte.ToByteArray()[0]);
+        static public void DecryptFile(string encryptFilePath, string decryptFilePath, string fileKeyPath)
+        {
+            Console.WriteLine($"Start decrypting");
+            var closeKey = RSAKey.ReadFromFile(fileKeyPath);
+            using (var decodedFile = File.Create(decryptFilePath))
+            {
+                var encodedInformation = File.ReadAllText(encryptFilePath).Split(Separator);
+                var count = 0;
+                foreach (var block in encodedInformation)
+                {
+                    Console.WriteLine($"Byte number {count++} from {encodedInformation.Length}");
+                    var decodedBlock = Decrypt(BigInteger.Parse(block), closeKey).ToByteArray()[0];
+                    decodedFile.WriteByte(decodedBlock);
+                }
             }
         }
-    }
 
-    public static BigInteger GenerateRandomNumber(int bytesLength) {
-        var buff = new byte[bytesLength];
-        rngCsp.GetBytes(buff);
-        return new BigInteger(buff, true);
-    }
-    
-    public static BigInteger EulerFunction(BigInteger p, BigInteger q) {
-        return (p - 1) * (q - 1);
-    }
-
-    private static BigInteger Gcd(BigInteger a, BigInteger b) {
-        while (!b.IsZero) {
-            a %= b;
-            var tmp = a;
-            a = b;
-            b = tmp;
+        static private BigInteger Encrypt(BigInteger cipher, RSAKey openKey)
+        {
+            return BigInteger.ModPow(cipher, openKey.Key, openKey.Module);
         }
 
-        return a;
-    }
-
-    private static BigInteger Gcd(BigInteger a, BigInteger b, out BigInteger x, out BigInteger y) {
-        if (a.IsZero) {
-            x = 0;
-            y = 1;
-            return b;
+        static private BigInteger Decrypt(BigInteger cipher, RSAKey closeKey)
+        {
+            return BigInteger.ModPow(cipher, closeKey.Key, closeKey.Module);
         }
 
-        BigInteger x1, y1;
-        var d = Gcd(b % a, a, out x1, out y1);
-        x = y1 - (b / a) * x1;
-        y = x1;
-        return d;
-    }
-
-    private static BigInteger GenerateLargePrimeNumber(int bytesLength, TestPrimeDelegate testPrime) {
-        while (true) {
-            var candidate = GenerateRandomNumber(bytesLength);
-            while (candidate <= 2)
-                candidate = GenerateRandomNumber(bytesLength);
-            // make odd
-            candidate |= 1;
-
-            if (testPrime(candidate))
-                return candidate;
-        }
-    }
-
-    public static bool TestMillerRabin(BigInteger n) {
-        const int rounds = 28;
-        var nMinusOne = n - 1;
-        // n-1=2^s *t
-        var s = 0;
-        var t = nMinusOne;
-        while (t.IsEven) {
-            t /= 2;
-            s++;
+        static private BigInteger EuclidExtended(BigInteger a, BigInteger b, out BigInteger x, out BigInteger y)
+        {
+            if (a == 0)
+            {
+                x = 0;
+                y = 1;
+                return b;
+            }
+            var gcd = EuclidExtended(b % a, a, out BigInteger x1, out BigInteger y1);
+            x = y1 - (b / a) * x1;
+            y = x1;
+            return gcd;
         }
 
-        for (var i = 0; i < rounds; i++) {
-            // Choose rnd a в in [2, n − 2]
-            outer:
-            var a = GenerateRandomNumber(2, n - 2);
-            //x = a pow t mod n;
-            var x = BinPowMod(a, t, n);
-            if (x == 1 || x == nMinusOne)
-                continue;
+        private static BigInteger GenetateRandomPrime()
+        {
+            Console.WriteLine("Start generating prime");
+            while (true)
+            {
+                var candidate = GenerateRandom(Min, Max);
+                Console.WriteLine($"Candidate {candidate}");
+                while (candidate <= 2)
+                {
+                    candidate = GenerateRandom(Min, Max);
+                }
+                candidate |= 1;
+                if (Fermat(candidate))
+                {
+                    Console.WriteLine($"End generating prime {candidate}");
+                    return candidate;
+                }
+            }
+        }
 
-            for (var j = 0; j < s; j++) {
-                x = BinPowMod(x, 2, n);
-                if (x.IsOne)
+        private static bool TrialDivision(BigInteger candidate)
+        {
+            Console.WriteLine("Start TestPrime");
+            var closestSqrt = Sqrt(candidate);
+            for (BigInteger i = 2; i <= closestSqrt; ++i)
+            {
+                Console.WriteLine($"Test {i} from {closestSqrt}");
+                if (BigInteger.Remainder(candidate, i) == 0)
+                {
                     return false;
-                if (x == nMinusOne)
-                    goto outer;
+                }
             }
-            return false;
+            return true;
         }
 
-        return true;
-    }
-
-    public static bool TestSolovayStrassen(BigInteger n) {
-        const int rounds = 28;
-        for (var i = 0; i < rounds; i++) {
-            var a = GenerateRandomNumber(3, n - 1);
-            if (BigInteger.GreatestCommonDivisor(a, n) > 1)
-                return false;
-
-            if (BigInteger.Remainder(BigInteger.ModPow(a, (n - 1) / 2, n) - JacobySymbol(a, n), n) != 0)
-                return false;
-            
-        }
-        return true;
-    }
-
-    public static BigInteger JacobySymbol(BigInteger a, BigInteger b) {
-        if (BigInteger.GreatestCommonDivisor(a, b) != 1)
-            return 0;
-        
-        BigInteger r = 1;
-        if (a < 0) {
-            a = -a;
-            if (BigInteger.Remainder(b, 4) == 3)
-                r = -r;
-        }
-        step4:
-        BigInteger t = 0;
-        while (a.IsEven) {
-            t++;
-            a = a / 2;
-        }
-        
-        if (!t.IsEven)
-            if (BigInteger.Remainder(b, 8) == 3 || BigInteger.Remainder(b, 8) == 5)
-                r = -r;
-
-        if (BigInteger.Remainder(a, 4) == 3 && BigInteger.Remainder(b, 4) == 3) {
-            r = -r;
-        }
-        
-        var c = a;
-        a = BigInteger.Remainder(b, c);
-        b = c;
-        
-        if (!a.IsZero)
-            goto step4;
-        
-        return r;
-
-    }
-
-    public static bool TestTrialDivision(BigInteger n) {
-        var closestSqrt = Sqrt(n);
-
-        for (BigInteger i = 2; i <= closestSqrt; i++) {
-            if (BigInteger.Remainder(n, i) == 0) {
+        private static bool MillerRabin(BigInteger n)
+        {
+            Console.WriteLine("Start TestPrime");
+            if (n % 2 == 0)
+            {
                 return false;
             }
-        }
-
-        return true;
-    }
-
-    private static BigInteger Sqrt(BigInteger n) {
-        // [left, right]
-        BigInteger left = 2;
-        BigInteger right = n;
-        
-        var middle = (right + left) / 2;
-        var answer = middle * middle;
-        
-        while (right - left != 1) {
-            middle = (right + left) / 2;
-            if (middle * middle >= n) {
-                answer = middle;
-                right = middle;
-                continue;
+            var t = n - 1;
+            var s = 0;
+            while (t % 2 == 0)
+            {
+                t /= 2;
+                ++s;
             }
-
-            left = middle;
-
-        }
-
-        return answer;
-    }
-
-    private static BigInteger BinPowMod(BigInteger a, BigInteger power, BigInteger modulo) {
-        BigInteger res = 1;
-        while (!power.IsZero) {
-            if (!power.IsEven) {
-                res *= a;
-                res %= modulo;
+            var rounds = 40;
+            for (var i = 0; i < rounds; ++i)
+            {
+                Console.WriteLine($"Round {i} from {rounds}");
+                var a = GenerateRandom(2, n - 2);
+                var x = BigInteger.ModPow(a, t, n);
+                if (x == 1 || x == n - 1)
+                {
+                    continue;
+                }
+                var flag = false;
+                for (var j = 0; j < s; ++j)
+                {
+                    x = BigInteger.ModPow(x, 2, n);
+                    if (x == 1)
+                    {
+                        return false;
+                    }
+                    if (x == n - 1)
+                    {
+                        flag = true;
+                        break;
+                    }
+                }
+                if (flag)
+                {
+                    continue;
+                }
+                return false;
             }
-            a *= a;
-            a %= modulo;
-            power /= 2;
+            return true;
         }
 
-        return res;
+        private static bool Fermat(BigInteger n)
+        {
+            Console.WriteLine("Start TestPrime");
+            if (n == 1)
+            {
+                return false;
+            }
+            else if (n == 2)
+            {
+                return true;
+            }
+            var rounds = 20;
+            for (int i = 0; i < rounds; ++i)
+            {
+                Console.WriteLine($"Round {i} from {rounds}");
+                var a = GenerateRandom(2, n - 2);
+                var r = BigInteger.ModPow(a, n - 1, n);
+                if (r != 1)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static BigInteger Sqrt(BigInteger number)
+        {
+            // https://social.msdn.microsoft.com/Forums/ru-RU/f9aca8c2-af21-40e4-b5bb-c9613b9db4ca/-biginteger?forum=fordesktopru.
+            var root = number;
+            int bitLength = 1;
+            while (root / 2 != 0)
+            {
+                root /= 2;
+                bitLength++;
+            }
+            bitLength = (bitLength + 1) / 2;
+            root = number >> bitLength;
+
+            var lastRoot = BigInteger.Zero;
+            do
+            {
+                lastRoot = root;
+                root = (BigInteger.Divide(number, root) + root) >> 1;
+            }
+            while (!((root ^ lastRoot).ToString() == "0"));
+            return root;
+        }
+
+        public static BigInteger GenerateRandom(BigInteger leftBound, BigInteger rightBound)
+        {
+            var diff = rightBound - leftBound;
+            // https://stackoverflow.com/questions/17357760/how-can-i-generate-a-random-biginteger-within-a-certain-range.
+            byte[] bytes = diff.ToByteArray();
+            BigInteger result;
+            var random = new Random();
+            do {
+                random.NextBytes(bytes);
+                bytes[bytes.Length - 1] &= (byte)0x7F; //force sign bit to positive
+                result = new BigInteger(bytes);
+            } while (result >= diff);
+            result += leftBound;
+            if (result < leftBound || result > rightBound || result < 0)
+            {
+                throw new Exception("Generated number outside of ranges");
+            }
+            return result;
+        }
+
+        private const char Separator = ' ';
+        private const int Base = 512;
+        private static BigInteger Max = BigInteger.Pow(2, Base) - 1;
+        private static BigInteger Min = BigInteger.Pow(2, Base - 1);
     }
-    
-    // [min, max]
-    public static BigInteger GenerateRandomNumber(BigInteger min, BigInteger max) {
-        var maxByteArray = max.ToByteArray(true, true);
-        var minByteArray = min.ToByteArray(true, true);
-        Debug.Assert(maxByteArray.Length >= minByteArray.Length);
-        
-        var resByteArray = new byte[maxByteArray.Length];
-
-        if (minByteArray.Length < maxByteArray.Length) {
-            //increase length
-            var newBuf = new byte[maxByteArray.Length];
-            var lengthDiff = maxByteArray.Length - minByteArray.Length;
-            Array.Copy(minByteArray, 0, newBuf, lengthDiff, minByteArray.Length);
-            minByteArray = newBuf;
-        }
-
-        var isLessMax = false;
-        var isMoreMin = false;
-        var rnd = new Random();
-        
-        for (var i = 0; i < maxByteArray.Length; i++) {
-            var upperBound = Byte.MaxValue + 1;
-            if (!isLessMax)
-                upperBound = maxByteArray[i] + 1;
-
-            var lowerBound = Byte.MinValue;
-            if (!isMoreMin)
-                lowerBound = minByteArray[i];
-            
-            var rndByte = (byte)rnd.Next(lowerBound, upperBound);
-            if (rndByte < maxByteArray[i])
-                isLessMax = true;
-            
-            if (rndByte > minByteArray[i])
-                isMoreMin = true;
-            resByteArray[i] = rndByte;
-        }
-
-        return new BigInteger(resByteArray, true, true);
-    }
-}
 }

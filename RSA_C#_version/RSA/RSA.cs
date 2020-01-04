@@ -137,7 +137,7 @@ namespace RSA
                     candidate = GenerateRandom(Min, Max);
                 }
                 candidate |= 1;
-                if (Fermat(candidate))
+                if (MillerRabin(candidate))
                 {
                     Console.WriteLine($"End generating prime {candidate}");
                     return candidate;
