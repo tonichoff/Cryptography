@@ -1,0 +1,6 @@
+﻿namespace Crypto
+{
+    class ECDSA
+    {
+    }
+}
