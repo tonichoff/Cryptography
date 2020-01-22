@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Numerics;
 
-namespace ElGamal_signature_scheme
+namespace Crypto
 {
     static class Algos
     {
@@ -19,7 +19,8 @@ namespace ElGamal_signature_scheme
             return gcd;
         }
 
-        public static BigInteger GenetateRandomPrime(BigInteger Min, BigInteger Max)
+        public delegate bool PrimeTestDelegate(BigInteger candidate);
+        public static BigInteger GenetateRandomPrime(BigInteger Min, BigInteger Max, PrimeTestDelegate primeTest)
         {
             Console.WriteLine("Start generating prime");
             while (true)
@@ -31,12 +32,25 @@ namespace ElGamal_signature_scheme
                     candidate = GenerateRandom(Min, Max);
                 }
                 candidate |= 1;
-                if (MillerRabin(candidate))
+                if (primeTest(candidate))
                 {
                     Console.WriteLine($"End generating prime {candidate}");
                     return candidate;
                 }
             }
+        }
+
+        public static BigInteger GenerateRandomCoprime(BigInteger other)
+        {
+            for (var i = 0; i < 100; ++i)
+            {
+                var result = GenetateRandomPrime(2, other - 1, MillerRabin);
+                if (Algos.EuclidExtended(other, result, out BigInteger temp1, out BigInteger temp2) == 1)
+                {
+                    return result;
+                }
+            }
+            return 65537;
         }
 
         public static bool TrialDivision(BigInteger candidate)
@@ -147,6 +161,12 @@ namespace ElGamal_signature_scheme
             }
             while (!((root ^ lastRoot).ToString() == "0"));
             return root;
+        }
+
+        public static BigInteger ReverseByMod(BigInteger number, BigInteger mod)
+        {
+            EuclidExtended(number, mod, out BigInteger x, out BigInteger y);
+            return (x % mod + mod) % mod;
         }
 
         public static BigInteger GenerateRandom(BigInteger leftBound, BigInteger rightBound)
