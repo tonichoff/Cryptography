@@ -44,13 +44,13 @@ namespace Crypto
         {
             this.dimension = dimension;
             this.fileName = fileName;
-            this.curve = curve;
+            Curve = curve;
         }
 
         public (CurvePoint, BigInteger) CreateKeys()
         {
-            var closeKey = Algos.GenerateRandom(1, curve.n - 1);
-            var openKey = curve.G.MulOnScalar(closeKey);
+            var closeKey = Algos.GenerateRandom(1, Curve.n - 1);
+            var openKey = Curve.G.MulOnScalar(closeKey);
             return (openKey, closeKey);
         }
 
@@ -59,14 +59,14 @@ namespace Crypto
             var z = GetHash();
             while (true)
             {
-                var k = Algos.GenerateRandom(1, curve.n - 1);
-                var P = curve.G.MulOnScalar(k);
-                var r = P.x % curve.n;
+                var k = Algos.GenerateRandom(1, Curve.n - 1);
+                var P = Curve.G.MulOnScalar(k);
+                var r = P.x % Curve.n;
                 if (r == 0)
                 {
                     continue;
                 }
-                var s = (Inverse(k, curve.n) * (z + r * closeKey)) % curve.n;
+                var s = (Inverse(k, Curve.n) * (z + r * closeKey)) % Curve.n;
                 if (s == 0)
                 {
                     continue;
@@ -78,11 +78,11 @@ namespace Crypto
         public bool CheckSignature(Signature signature, CurvePoint openKey)
         {
             var z = GetHash();
-            var w = Inverse(signature.s, curve.n);
-            var u = (w * z) % curve.n;
-            var v = (w * signature.r) % curve.n;
-            var P = curve.G.MulOnScalar(u) + openKey.MulOnScalar(v);
-            return signature.r % curve.n == P.x % curve.n;
+            var w = Inverse(signature.s, Curve.n);
+            var u = (w * z) % Curve.n;
+            var v = (w * signature.r) % Curve.n;
+            var P = Curve.G.MulOnScalar(u) + openKey.MulOnScalar(v);
+            return signature.r % Curve.n == P.x % Curve.n;
         }
 
         static public BigInteger Inverse(BigInteger n, BigInteger m)
@@ -118,13 +118,13 @@ namespace Crypto
             using var file = File.OpenRead(fileName);
             var hash = new BigInteger(sha256.ComputeHash(file), true);
             var bitesZ = CountBits(hash);
-            var bitesN = CountBits(curve.n);
+            var bitesN = CountBits(Curve.n);
             hash <<= (bitesZ > bitesN) ? bitesZ - bitesN : 0;
             return hash;
         }
 
         private int dimension;
         private string fileName;
-        private Curve curve;
+        public static Curve Curve { get; private set; }
     }
 }

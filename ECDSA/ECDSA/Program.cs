@@ -31,7 +31,6 @@ namespace Crypto
                     NumberStyles.AllowHexSpecifier
                 )
             );
-            curve.G.curve = curve;
             var ecdsa = new ECDSA(256, "text.txt", curve);
             var (openKey, closeKey) = ecdsa.CreateKeys();
             var signature = ecdsa.CreateSignature(closeKey);

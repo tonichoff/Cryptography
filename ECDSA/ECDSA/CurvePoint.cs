@@ -21,7 +21,7 @@ namespace Crypto
 
         public CurvePoint MulOnScalar(BigInteger scalar)
         {
-            if (scalar % curve.n == 0 || this.IsZero)
+            if (scalar % ECDSA.Curve.n == 0 || IsZero)
             {
                 return new CurvePoint(true);
             }
@@ -30,18 +30,14 @@ namespace Crypto
                 return Neg().MulOnScalar(-scalar);
             }
             var point = new CurvePoint(x, y);
-            point.curve = curve;
             var result = new CurvePoint(true);
-            result.curve = curve;
             foreach (var bit in GetNextBit(scalar))
             {
                 if (bit == 1)
                 {
                     result += point;
-                    result.curve = point.curve;
                 }
                 point += point;
-                point.curve = result.curve;
             }
             return result;
         }
@@ -63,7 +59,7 @@ namespace Crypto
             {
                 return new CurvePoint(true);
             }
-            return new CurvePoint(x, -y % curve.p);
+            return new CurvePoint(x, -y % ECDSA.Curve.p);
         }
 
         static public CurvePoint operator +(CurvePoint a, CurvePoint b)
@@ -80,11 +76,11 @@ namespace Crypto
             {
                 return new CurvePoint(true);
             }
-            var m = (a == b) ? (3 * a.x * a.x + a.curve.a) * ECDSA.Inverse(2 * a.y, a.curve.p) :
-                               (a.y - b.y) * ECDSA.Inverse(a.x - b.x, a.curve.p);
-            var x = (m * m - a.x - b.x) % a.curve.p;
-            var y = (a.y + m * (x - a.x)) % a.curve.p;
-            return new CurvePoint(x, y);
+            var m = (a == b) ? (3 * a.x * a.x + ECDSA.Curve.a) * ECDSA.Inverse(2 * a.y, ECDSA.Curve.p) :
+                               (a.y - b.y) * ECDSA.Inverse(a.x - b.x, ECDSA.Curve.p);
+            var x = (m * m - a.x - b.x) % ECDSA.Curve.p;
+            var y = (a.y + m * (x - a.x)) % ECDSA.Curve.p;
+            return new CurvePoint(x, -y);
         }
 
         static public bool operator ==(CurvePoint a, CurvePoint b)
@@ -107,7 +103,6 @@ namespace Crypto
 
         public BigInteger x { get; private set; }
         public BigInteger y { get; private set; }
-        public Curve curve { get; set; }
         public bool IsZero { get; set; }
     }
 }
